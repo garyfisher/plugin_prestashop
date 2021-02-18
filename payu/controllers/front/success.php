@@ -103,13 +103,24 @@ class PayUSuccessModuleFrontController extends ModuleFrontController
     {
         if (Validate::isLoadedObject($this->order)) {
             $currency = new Currency((int) $this->order->id_currency);
-
+            $ovalueorg = $this->order->getOrdersTotalPaid();
+            $payucart = Configuration::get('PAYU_CART');
+            $payuvalue = Configuration::get('PAYU_VALUE');
+            
+            if ($ovalueorg > $payucart) {
+                $ovaluecalc = $ovalueorg * $payuvalue;
+                $ovalueb = $ovalueorg + $ovaluecalc;
+                $ovalue = ceil($ovalueb);
+            }else{
+                $ovalue = $ovalueorg;
+            }
+            
             return array(
                 'objOrder' => $this->order,
                 'order' => $this->order,
                 'currencyObj' => $currency,
                 'currency' => $currency->sign,
-                'total_to_pay' => $this->order->getOrdersTotalPaid()
+                'total_to_pay' => $ovalue
             );
         }
 

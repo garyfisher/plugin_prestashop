@@ -8,7 +8,7 @@
  * http://www.payu.com
 *}
 <span class="payu-installment-price-listing">
-        <span style="display: block;" class="payu-installment-mini-{$product_id|md5}"></span>
+        <span style="display: block;color: #ffa300!important;font-weight: bold;" class="payu-installment-mini-{$product_id|md5}"></span>
 </span>
 <script type="text/javascript" class="payu-script-tag">
     document.addEventListener("DOMContentLoaded", function (event) {

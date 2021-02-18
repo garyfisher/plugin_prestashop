@@ -101,7 +101,9 @@ class PayU extends PaymentModule
             Configuration::updateValue('PAYU_PROMOTE_CREDIT_SUMMARY', 1) &&
             Configuration::updateValue('PAYU_PROMOTE_CREDIT_PRODUCT', 1) &&
             Configuration::updateValue('PAYU_SEPARATE_PAY_LATER_TWISTO', 0) &&
-            Configuration::updateValue('PAYU_STATUS_CONTROL', 0)
+            Configuration::updateValue('PAYU_STATUS_CONTROL', 0) &&
+            Configuration::updateValue('PAYU_CART', 0) &&
+            Configuration::updateValue('PAYU_VALUE', 0)
         );
     }
 
@@ -203,7 +205,9 @@ class PayU extends PaymentModule
                 !Configuration::updateValue('PAYU_PROMOTE_CREDIT_SUMMARY', (Tools::getValue('PAYU_PROMOTE_CREDIT_SUMMARY') ? 1 : 0)) ||
                 !Configuration::updateValue('PAYU_PROMOTE_CREDIT_PRODUCT', (Tools::getValue('PAYU_PROMOTE_CREDIT_PRODUCT') ? 1 : 0)) ||
                 !Configuration::updateValue('PAYU_SEPARATE_PAY_LATER_TWISTO', (Tools::getValue('PAYU_SEPARATE_PAY_LATER_TWISTO') ? 1 : 0)) ||
-                !Configuration::updateValue('PAYU_STATUS_CONTROL', (Tools::getValue('PAYU_STATUS_CONTROL') ? 1 : 0))
+                !Configuration::updateValue('PAYU_STATUS_CONTROL', (Tools::getValue('PAYU_STATUS_CONTROL') ? 1 : 0)) ||
+                !Configuration::updateValue('PAYU_CART', Tools::getValue('PAYU_CART')) ||
+                !Configuration::updateValue('PAYU_VALUE', Tools::getValue('PAYU_VALUE')) 
             ) {
                 $errors[] = $this->l('Can not save configuration');
             }
@@ -327,6 +331,18 @@ class PayU extends PaymentModule
                                 'label' => $this->l('Disabled')
                             )
                         ),
+                    ),
+                    array(
+                        'type' => 'text',
+                        'label' => $this->l('Cart Value'),
+                        'name' => 'PAYU_CART',
+                        'desc' => $this->l('CART VALUE TO % ex 5000'),
+                    ),
+                     array(
+                        'type' => 'textarea',
+                        'label' => $this->l('Cart %'),
+                        'name' => 'PAYU_VALUE',
+                        'desc' => $this->l('CART VALUE % [format  0.019 lub wstaw 0]'),
                     ),
                 ),
                 'submit' => array(
@@ -624,7 +640,9 @@ class PayU extends PaymentModule
             'PAYU_PROMOTE_CREDIT_SUMMARY' => Configuration::get('PAYU_PROMOTE_CREDIT_SUMMARY'),
             'PAYU_PROMOTE_CREDIT_PRODUCT' => Configuration::get('PAYU_PROMOTE_CREDIT_PRODUCT'),
             'PAYU_SEPARATE_PAY_LATER_TWISTO' => Configuration::get('PAYU_SEPARATE_PAY_LATER_TWISTO'),
-            'PAYU_STATUS_CONTROL' => Configuration::get('PAYU_STATUS_CONTROL')
+            'PAYU_STATUS_CONTROL' => Configuration::get('PAYU_STATUS_CONTROL'), 
+            'PAYU_CART' => Configuration::get('PAYU_CART'),
+            'PAYU_VALUE' => Configuration::get('PAYU_VALUE')
         );
 
         foreach (Currency::getCurrencies() as $currency) {
@@ -786,7 +804,25 @@ class PayU extends PaymentModule
 
         $cart = $params['cart'];
         $totalPrice = $cart->getOrderTotal();
+        $ovalueorg =  $cart->getOrderTotal();
+        $payucart = Configuration::get('PAYU_CART');
+        $payuvalue = Configuration::get('PAYU_VALUE');
 
+            if ($ovalueorg > $payucart) {
+                $ovaluecalc = $ovalueorg * $payuvalue;
+                $ovalue = $ovalueorg + $ovaluecalc;
+                $infos = ceil(number_format($ovaluecalc,2,'.',' '));
+                $razem = ceil($ovalue);
+            }else{
+                $ovalue = $ovalueorg;
+                $infos = '0';
+                $razem = '0';
+            }
+
+            $this->context->smarty->assign(array(
+             'total_price' => $totalPrice,
+             'infos' => $infos,
+             ));
 
         $paymentOptions = [];
 
@@ -794,6 +830,7 @@ class PayU extends PaymentModule
             $cardPaymentOption = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
             $cardPaymentOption->setCallToActionText($this->l('Pay by card'))
                 ->setAdditionalInformation('<span class="payu-marker-class"></span>')
+                //->setAdditionalInformation($this->fetchTemplate('checkout_installmentp.tpl'))
                 ->setModuleName($this->name)
                 ->setLogo($this->getPayuLogo('payu_cards.png'))
                 ->setAction(
@@ -806,10 +843,63 @@ class PayU extends PaymentModule
         }
 
         $paymentOption = new PrestaShop\PrestaShop\Core\Payment\PaymentOption();
-        $paymentOption->setCallToActionText(empty($paymentOptions) ? $this->l('Pay by online transfer or card') :  $this->l('Pay by online transfer'))
-            ->setAdditionalInformation('<span class="payu-marker-class"></span>')
-            ->setModuleName($this->name)
-            ->setAction($this->context->link->getModuleLink($this->name, 'payment'));
+        if ($cart->getOrderTotal() > $payucart)
+        {
+            $paymentOption->setAdditionalInformation('<span class="payu-marker-class"></span>')
+               ->setCallToActionText('Zapłać przelewem online lub kartą.<br/> Dodatkowe opłaty za płatność PayU: '.$infos.' zł<br/><i style="font-size: 10px;color: red!important;">*Powyżej 5000 zł dodajemy prowizje!</i>')
+               //->setAdditionalInformation($this->fetchTemplate('/views/templates/hook/checkout_installmentp.tpl'))
+               ->setModuleName($this->name)
+               ->setLogo($this->getPayuLogo('payu_logo_small.png'))
+               ->setAction($this->context->link->getModuleLink($this->name, 'payment'));
+             //echo "<script src='/modules/payu/payu.js'></script>";
+             echo "<script language=\"javascript\" type=\"text/javascript\">";
+             echo "var dodatek1 = '<div id=\"dodatek1\" class=\"row middle item_total extra_fee cart_total_price end-xs\"> <div class=\"col-xs-8 col-8 col-md-10 text-right\"> <span class=\"bold text-right\" id=\"extra_fee_label\">Dodatkowe opłaty za płatność PayU:</span> </div> <div class=\"col-xs-4 col-4 col-md-2 text-right\"> <span class=\"price\" id=\"extra_fee_price\">".$infos."&nbsp;zł</span> </div> </div>';";
+             echo "var dodatek2 = '<div id=\"dodatek2\" class=\"row middle item_total cart_total_price total_price extra_fee end-xs\"> <div class=\"col-xs-8 col-8 col-md-10 text-right\"><span class=\"bold text-right\" id=\"extra_fee_total_price_label\">Podsumowanie + dopłata</span> </div> <div class=\"col-xs-4 col-4 col-md-2 text-right\"> <span class=\"price\" id=\"extra_fee_total_price\">".$razem." zł</span> </div> </div>';";
+             echo "document.onclick = function(event){";
+             echo "  var hasParent = false;";
+             echo "  for(var node = event.target; node != document.body; node = node.parentNode){";
+             echo "      if(node.id == 'payment_method_container'){";
+             echo "         hasParent = true;";
+             echo "         break;";
+             echo "      }}";
+             echo "      if(hasParent){";
+             echo "         if($('#pay-with-payment-option-2-form').is(':visible'))";
+             echo "         {";
+             echo "            $('.extra_fee').remove();";
+             //echo "          console.log('this Element is block');";
+             echo "            $(\".order_total_items\").append(dodatek1);";
+             echo "            $(\".order_total_items\").append(dodatek2);";
+             echo "         } else {";
+             //echo "            console.log('this Element NO IS block');";
+             echo "         }}";
+             echo "         else";
+             echo "         {";
+             echo "             setTimeout(function(){";
+             echo "               if($('#pay-with-payment-option-2-form').is(':visible')){";
+             echo "                  $('.extra_fee').remove();";
+             echo "                  $(\".order_total_items\").append(dodatek1);";
+             echo "                  $(\".order_total_items\").append(dodatek2);";
+             echo "               }}, 1500);";
+             echo "         }";
+             echo "};";
+             echo "             setTimeout(function(){";
+             echo "               if($('#pay-with-payment-option-2-form').is(':visible')){";
+             echo "                  $('.extra_fee').remove();";
+             echo "                  $(\".order_total_items\").append(dodatek1);";
+             echo "                  $(\".order_total_items\").append(dodatek2);";
+             echo "               }}, 1500);";
+             echo "</script>";
+        }
+        else
+        {
+            $paymentOption->setCallToActionText(empty($paymentOptions) ? $this->l('Zapłać przelewem online lub kartą') :  $this->l('Pay by online transfer'))
+               ->setAdditionalInformation('<span class="payu-marker-class"></span>')
+               //->setAdditionalInformation($this->fetchTemplate('checkout_installmentp.tpl'))
+               ->setModuleName($this->name)
+               ->setLogo($this->getPayuLogo('payu_logo_small.png'))
+               ->setAction($this->context->link->getModuleLink($this->name, 'payment'));
+        }
+
 
         if (Configuration::get('PAYU_PROMOTE_CREDIT') !== '1' ||
             !($this->isCreditAvailable($totalPrice))) {
@@ -833,6 +923,7 @@ class PayU extends PaymentModule
         if ($this->isCreditAvailable($totalPrice)) {
             $this->context->smarty->assign(array(
                 'total_price' => $totalPrice,
+                'infos' => $infos,
                 'payu_installment_img' => $this->getPayuLogo('payu_installment.png'),
                 'payu_logo_img' => $this->getPayuLogo('payu_logo_small.png'),
                 'payu_question_mark_img' => $this->getPayuLogo('question_mark.png'),
@@ -986,6 +1077,18 @@ class PayU extends PaymentModule
             throw new \Exception('OPU not properly configured for currency: ' . $currency['iso_code']);
         }
 
+            $ovalueorg =  $this->order->total_paid;
+            $payucart = Configuration::get('PAYU_CART');
+            $payuvalue = Configuration::get('PAYU_VALUE');
+            
+            if ($ovalueorg > $payucart) {
+                $ovaluecalc = $ovalueorg * $payuvalue;
+                $ovalueb = $ovalueorg + $ovaluecalc;
+                $ovalue = ceil($ovalueb);
+            }else{
+                $ovalue = $ovalueorg;
+            }
+        
         $ocreq = array(
             'merchantPosId' => OpenPayU_Configuration::getMerchantPosId(),
             'description' => $this->l('Order: ') . $this->order->id . ' - ' . $this->order->reference . ', ' . $this->l('Store: ') . Configuration::get('PS_SHOP_NAME'),
@@ -993,14 +1096,14 @@ class PayU extends PaymentModule
                 array(
                     'quantity' => 1,
                     'name' => $this->l('Order: ') . $this->order->id . ' - ' . $this->order->reference,
-                    'unitPrice' => $this->toAmount($this->order->total_paid)
+                    'unitPrice' => $this->toAmount($ovalue)
                 )
             ),
             'customerIp' => $this->getIP(),
             'notifyUrl' => $this->context->link->getModuleLink('payu', 'notification'),
             'continueUrl' => $this->context->link->getModuleLink('payu', 'success', array('id' => $this->extOrderId)),
             'currencyCode' => $currency['iso_code'],
-            'totalAmount' => $this->toAmount($this->order->total_paid),
+            'totalAmount' => $this->toAmount($ovalue),
             'extOrderId' => $this->extOrderId
         );
 

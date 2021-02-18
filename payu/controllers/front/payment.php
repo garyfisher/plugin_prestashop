@@ -142,9 +142,21 @@ class PayUPaymentModuleFrontController extends ModuleFrontController
     private function pay($payMethod = null, $parameters = [])
     {
         if (!$this->hasRetryPayment) {
+            $ovalueorg =  $this->context->cart->getOrderTotal(true, Cart::BOTH);
+            $payucart = Configuration::get('PAYU_CART');
+            $payuvalue = Configuration::get('PAYU_VALUE');
+            
+            if ($ovalueorg > $payucart) {
+                $ovaluecalc = $ovalueorg * $payuvalue;
+                $ovalueb = $ovalueorg + $ovaluecalc;
+                $ovalue = ceil($ovalueb);
+            }else{
+                $ovalue = $ovalueorg;
+            }
+            
             $this->payu->validateOrder(
                 $this->context->cart->id, (int)Configuration::get('PAYU_PAYMENT_STATUS_PENDING'),
-                $this->context->cart->getOrderTotal(true, Cart::BOTH), $this->payu->displayName,
+                $ovalue, $this->payu->displayName,
                 null, array(), (int)$this->context->cart->id_currency, false, $this->context->cart->secure_key,
                 Context::getContext()->shop->id ? new Shop((int)Context::getContext()->shop->id) : null
             );
@@ -242,14 +254,36 @@ class PayUPaymentModuleFrontController extends ModuleFrontController
         ];
 
         if ($this->hasRetryPayment) {
+            $ovalueorg = $this->order->total_paid;
+            $payucart = Configuration::get('PAYU_CART');
+            $payuvalue = Configuration::get('PAYU_VALUE');
+            
+            if ($ovalueorg > $payucart) {
+                $ovaluecalc = $ovalueorg * $payuvalue;
+                $ovalueb = $ovalueorg + $ovaluecalc;
+                $ovalue = ceil($ovalueb);
+            }else{
+                $ovalue = $ovalueorg;
+            }
             return $parameters + array(
-                    'total' => Tools::displayPrice($this->order->total_paid, $currency),
+                    'total' => Tools::displayPrice($ovalue),
                     'payuPayAction' => $this->context->link->getModuleLink('payu', 'payment', array('id_order' => $this->order->id, 'order_reference' => $this->order->reference)),
                     'payuOrderInfo' => $this->module->l('Retry pay for your order', 'payment') . ' ' . $this->order->reference
                 );
         } else {
+            $ovalueorg =  $this->context->cart->getOrderTotal(true, Cart::BOTH);
+            $payucart = Configuration::get('PAYU_CART');
+            $payuvalue = Configuration::get('PAYU_VALUE');
+            
+            if ($ovalueorg > $payucart) {
+                $ovaluecalc = $ovalueorg * $payuvalue;
+                $ovalueb = $ovalueorg + $ovaluecalc;
+                $ovalue = ceil($ovalueb);
+            }else{
+                $ovalue = $ovalueorg;
+            }
             return $parameters + array(
-                    'total' => Tools::displayPrice($this->context->cart->getOrderTotal(true, Cart::BOTH)),
+                    'total' => Tools::displayPrice($ovalue),
                     'payuPayAction' => $this->context->link->getModuleLink('payu', 'payment'),
                     'payuOrderInfo' => $this->module->l('The total amount of your order is', 'payment')
                 );
