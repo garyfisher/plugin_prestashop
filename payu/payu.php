@@ -846,7 +846,7 @@ class PayU extends PaymentModule
         if ($cart->getOrderTotal() > $payucart)
         {
             $paymentOption->setAdditionalInformation('<span class="payu-marker-class"></span>')
-               ->setCallToActionText('Zapłać przelewem online lub kartą.<br/> Dodatkowe opłaty za płatność PayU: '.$infos.' zł<br/><i style="font-size: 10px;color: red!important;">*Powyżej 5000 zł dodajemy prowizje!</i>')
+               ->setCallToActionText('Zapłać przelewem online lub kartą.<br/> Dodatkowe opłaty za płatność PayU: <b>'.$infos.'</b> zł<br/><i style="font-size: 10px;color: red!important;">*Powyżej '.$payucart.' zł dodajemy prowizje PayU do zamówienia!</i>')
                //->setAdditionalInformation($this->fetchTemplate('/views/templates/hook/checkout_installmentp.tpl'))
                ->setModuleName($this->name)
                ->setLogo($this->getPayuLogo('payu_logo_small.png'))
