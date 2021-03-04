@@ -39,3 +39,4 @@ include_once('OpenPayU/v2/Refund.php');
 include_once('OpenPayU/v2/Order.php');
 include_once('OpenPayU/v2/Retrieve.php');
 include_once('OpenPayU/v2/Token.php');
+include_once('OpenPayU/v2/Shop.php');
